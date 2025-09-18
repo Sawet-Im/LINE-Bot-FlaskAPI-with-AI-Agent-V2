@@ -1,8 +1,9 @@
 streamlit
-pandas
-sqlalchemy<2.0 # ระบุเวอร์ชันที่น้อยกว่า 2.0 เพื่อให้เข้ากันได้กับ LangChain_community
-langchain-community
-#langchain-openai # ถ้าใช้ OpenAI
-langchain-google-genai # ถ้าใช้ Google Gemini
-langchain-ollama # ถ้าใช้ llama3.2
 python-dotenv
+langchain
+langchain-google-genai
+langchain-community
+langchain-core
+langchain-ollama
+Flask
+line-bot-sdk
