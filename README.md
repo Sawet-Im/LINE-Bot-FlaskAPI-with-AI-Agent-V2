@@ -1,9 +1,17 @@
-AI-Powered Menu Management Bot
-โครงการนี้คือบอทอัจฉริยะที่ช่วยจัดการฐานข้อมูลเมนูร้านอาหารผ่านการสนทนา ผู้ใช้สามารถสั่งการบอทได้ง่ายๆ เพื่อเพิ่ม, แก้ไข, ลบ หรือค้นหาข้อมูลเมนูโดยไม่ต้องเขียนโค้ด SQL ด้วยตัวเอง
+# LINE Bot Flask with AI Agent 
+โปรเจคนี้คือบอทอัจฉริยะที่ช่วยตอบข้อมูลเมนูร้านอาหาร โปรโมชั่นผ่านการสนทนา ผู้ใช้สามารถสั่งการบอทได้ง่ายๆ ค้นหาข้อมูลเมนูโดยไม่ต้องเขียนโค้ด SQL ด้วยตัวเอง พร้อมเว็บแอปพลิเคชันที่สร้างด้วย Flask สำหรับเชื่อมต่อกับ LINE Messaging API โดยจะทำหน้าที่เป็น Webhook เพื่อรับ-ส่งข้อความ และสามารถบันทึกข้อมูล Channel API ลงในฐานข้อมูล SQLite ได้
+
+# คุณสมบัติหลัก
+* บอทอัจฉริยะที่ช่วยตอบข้อมูลเมนูร้านอาหาร โปรโมชั่นผ่านการสนทนา
+* การตั้งค่า Webhook อัตโนมัติ: เมื่อกรอกข้อมูล Channel API จะทำการอัปเดต Webhook URL บน LINE Developers ให้โดยอัตโนมัติ
+* การจัดเก็บข้อมูล: จัดเก็บ Channel Secret และ Channel Access Token ไว้ในฐานข้อมูล SQLite ที่สร้างขึ้นภายในเครื่อง
+* การจัดการ Webhook แบบไดนามิก: สามารถจัดการ Webhook สำหรับผู้ใช้หลายคนโดยใช้ User ID เป็นตัวระบุ
+
 # 1. โครงสร้างโปรเจกต์
 โปรดสร้างไฟล์และโฟลเดอร์ตามโครงสร้างด้านล่างนี้:
 ```
 ├── my_app/
+│   ├── index.html        # การตั้งค่า Webhook อัตโนมัติ
 │   ├── api_app.py        # Flask API สำหรับรับข้อความจาก LINE
 │   ├── admin_app.py      # Streamlit UI สำหรับ Admin
 │   ├── ai_processor.py   # สคริปต์หลักสำหรับประมวลผลคำตอบของ AI
@@ -13,7 +21,14 @@ AI-Powered Menu Management Bot
 └── requirements.txt      # รายการไลบรารีที่จำเป็น
 ```
 
-# 2. การตั้งค่าเริ่มต้น
+# 2. การติดตั้งและการตั้งค่า
+
+## 2.1. สิ่งที่ต้องมีก่อนเริ่ม
+* Python 3.7 หรือใหม่กว่า
+* pip (ตัวจัดการแพ็กเกจของ Python)
+* ngrok (สำหรับเปิด Local Server ให้เข้าถึงได้จากภายนอก)
+
+## 2.2. ติดตั้งแพ็กเกจที่จำเป็น
 ไฟล์ requirements.txt
 ติดตั้งไลบรารีที่จำเป็นทั้งหมดด้วยคำสั่ง:
 ```
@@ -33,9 +48,8 @@ Flask
 line-bot-sdk
 ```
 
-
-####ไฟล์ .env
-ไฟล์นี้ใช้สำหรับเก็บ API Key และข้อมูลการเชื่อมต่อที่สำคัญ:
+## 2.3 ตั้งค่าตัวแปรสภาพแวดล้อม (Environment Variables)
+### สร้างไฟล์ชื่อ .env ในโฟลเดอร์เดียวกับไฟล์ api_app.py และเพิ่ม Channel Secret ของคุณลงไปในบรรทัดแรก:
 ```
 GOOGLE_API_KEY="YOUR_GOOGLE_API_KEY"
 ```
@@ -45,35 +59,53 @@ LINE_CHANNEL_ACCESS_TOKEN="YOUR_LINE_CHANNEL_ACCESS_TOKEN"
 LINE_CHANNEL_SECRET="YOUR_LINE_CHANNEL_SECRET"
 ```
 
-# 3. ภาพรวมการทำงาน
-### ระบบนี้ใช้หลักการ LLM as a Router และ SQL Agent เพื่อแปลงคำสั่งที่เป็นภาษาธรรมชาติของผู้ใช้ให้เป็นคำสั่ง SQL ที่ถูกต้อง
-## Flow การทำงานหลัก
-1. รับคำสั่ง: ผู้ใช้พิมพ์คำสั่งผ่านช่องแชท
-2. วิเคราะห์เจตนา: LLM จะวิเคราะห์คำสั่งของผู้ใช้และใช้ AGENT_PREFIX (คำแนะนำ) เพื่อตัดสินใจว่าควรสร้างคำสั่ง SQL ประเภทใด (เช่น SELECT, INSERT)
-3. สร้างคำสั่ง: LLM สร้างคำสั่ง SQL ที่เหมาะสม
-4. รันคำสั่ง: คำสั่ง SQL จะถูกส่งไปยัง Tool sql_db_query เพื่อทำงานกับฐานข้อมูล
-5. สรุปผล: Agent สรุปผลลัพธ์ที่ได้จากการรันคำสั่ง และสร้างคำตอบที่เข้าใจง่ายสำหรับผู้ใช้ พร้อมแสดงคำสั่ง SQL ที่ใช้
-## ตัวอย่าง Flow การทำงาน
-## Flow สำหรับการค้นหาข้อมูล (SELECT)
-* คำสั่ง: "มีเมนูอะไรบ้าง"
-* กระบวนการ: LLM สร้างคำสั่ง SELECT menu_name FROM menu
-* ผลลัพธ์: บอทแสดงรายการเมนูทั้งหมด และคำสั่ง SQL ที่ใช้
-
-Terminal 1 (สำหรับ Flask API):
+# 3. รันโปรเจกต์และตั้งค่า ngrok
+## 3.1 เปิด Terminal1 รันคำสั่ง ngrok เพื่อเปิด Public URL:
 ```
+ngrok http 9000
+```
+คุณจะได้รับ Public URL ที่ขึ้นต้นด้วย https:// (เช่น https://example.ngrok-free.app) โปรด คัดลอก URL นี้ไว้
+## 3.2 ขั้นตอนสำคัญ: เปิดไฟล์ api_app.py แล้วนำ URL ที่คัดลอกมาไปวางแทนที่ค่าของตัวแปร base_url ตามโค้ดตัวอย่างด้านล่าง:
+```
+# V V V V V V V V V V V V V V V V V V V V V V V V V V V V V V
+#
+# >>> ขั้นตอนที่สำคัญมาก: โปรดนำ Public URL จาก ngrok มาวางที่นี่
+#
+# ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^
+#
+base_url = "[https://example.ngrok-free.app](https://example.ngrok-free.app)" # วาง URL ngrok ของคุณที่นี่
+
+```
+## 3.3 Terminal 2 (สำหรับ Flask API):
+เปิด Terminal หน้าที่สองและรันคำสั่ง:
+```
+source venv/bin/activate 
 cd my_app
 python api_app.py
 ```
-
-Terminal 2 (สำหรับ AI Processor):
+## 3.4 Terminal 3 (สำหรับ AI Processor):
 ```
+source venv/bin/activate 
 cd my_app
 python ai_processor.py
 ```
 
-Terminal 3 (สำหรับ Admin UI):
+## 3.5 Terminal 4 (สำหรับ Admin UI):
 ```
+source venv/bin/activate 
 cd my_app
 streamlit run admin_app.py
 ```
 
+# 4. ตั้งค่าบนหน้าเว็บ
+## 4.1เปิดเว็บเบราว์เซอร์แล้วไปที่ http://localhost:9000
+## 4.2กรอก Channel Secret และ Channel Access Token ของคุณ
+## 4.3กดปุ่ม "บันทึกและสร้าง Webhook"
+หากทุกอย่างถูกต้อง หน้าเว็บจะแสดงข้อความว่า "Webhook URL updated successfully." พร้อมกับ Webhook URL ที่สมบูรณ์
+
+# 5. การใช้งาน
+เมื่อ Webhook URL ได้รับการอัปเดตแล้ว คุณสามารถส่งข้อความไปยัง LINE Official Account ของคุณได้เลยครับ
+ระบบจะทำงานตามโค้ดที่คุณเขียนไว้ในฟังก์ชัน callback เพื่อรับข้อความและตอบกลับโดยอัตโนมัติ
+
+หากมีข้อสงสัยหรือปัญหาเพิ่มเติม สามารถสอบถามได้เลยครับ
+# LINE-Bot-Flask-with-AI-Agent-V1

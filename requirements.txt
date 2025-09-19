@@ -7,3 +7,4 @@ langchain-core
 langchain-ollama
 Flask
 line-bot-sdk
+python-dotenv

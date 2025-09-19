@@ -1,3 +1,4 @@
+# my_app/database.py
 import sqlite3
 import datetime
 
@@ -48,6 +49,15 @@ def initialize_database():
                 reply_token TEXT NOT NULL,
                 status TEXT NOT NULL,
                 timestamp TEXT NOT NULL
+            )
+        ''')
+
+        # --- NEW: Create line_channels table to store per-user credentials ---
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS line_channels (
+                user_id TEXT PRIMARY KEY,
+                channel_secret TEXT NOT NULL,
+                channel_access_token TEXT NOT NULL
             )
         ''')
 
@@ -161,5 +171,37 @@ def update_admin_response(task_id, new_admin_response):
         conn.commit()
     except sqlite3.Error as e:
         print(f"Database error updating admin response: {e}")
+    finally:
+        conn.close()
+
+def add_credentials(user_id, channel_secret, channel_access_token):
+    """Adds or updates a user's LINE channel credentials."""
+    conn = sqlite3.connect(DB_FILE_NAME)
+    cursor = conn.cursor()
+    try:
+        cursor.execute('''
+            INSERT OR REPLACE INTO line_channels (user_id, channel_secret, channel_access_token)
+            VALUES (?, ?, ?)
+        ''', (user_id, channel_secret, channel_access_token))
+        conn.commit()
+        return True
+    except sqlite3.Error as e:
+        print(f"Database error adding credentials: {e}")
+        return False
+    finally:
+        conn.close()
+
+def get_credentials(user_id):
+    """Retrieves a user's LINE channel credentials."""
+    conn = sqlite3.connect(DB_FILE_NAME)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT * FROM line_channels WHERE user_id = ?", (user_id,))
+        row = cursor.fetchone()
+        return dict(row) if row else None
+    except sqlite3.Error as e:
+        print(f"Database error getting credentials: {e}")
+        return None
     finally:
         conn.close()
