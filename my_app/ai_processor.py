@@ -248,7 +248,7 @@ def process_new_tasks(user_id, line_id, user_message, task_id):
             ai_response_raw = response.get("output", "ขออภัยครับ เกิดข้อผิดพลาดในการประมวลผลคำตอบ")     
             
             # 4. แยกคำตอบและ SQL เพียงครั้งเดียว (ถูกต้อง)
-            response_message, delimiter, sql_command_raw = ai_response_raw.partition("คำสั่ง SQL ที่ใช้:")
+            response_message, delimiter, sql_command_raw = ai_response_raw.partition("**คำสั่ง SQL ที่ใช้:**")
             sql_command = sql_command_raw.strip()
             final_response_message = response_message.strip() # ข้อความตอบลูกค้า
             
