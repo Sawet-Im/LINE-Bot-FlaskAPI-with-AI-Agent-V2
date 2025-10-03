@@ -1,28 +1,24 @@
-# my_app/api_app.py
+#api_app.py
 import os
-from flask import Flask, request, jsonify, render_template_string
+from flask import Flask, request, jsonify, render_template
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError, LineBotApiError
-from linebot.models import TextMessage, MessageEvent, TextSendMessage
+from linebot.models import TextMessage, MessageEvent, StickerMessage, ImageMessage 
+from linebot.models import TextSendMessage
 from dotenv import load_dotenv
-
-# For updating webhook URL
 import requests
+import json
+import sqlite3
 
-# Import functions from our modular files
-from database import initialize_database, add_new_task, get_credentials, add_credentials
-
+# from database import initialize_database, add_new_task, get_credentials, add_credentials, get_tasks_by_status, update_task_status, update_admin_response, update_task_response, get_auto_reply_setting, update_auto_reply_setting, get_chat_history
+from database import initialize_database, add_new_task, get_credentials, add_credentials, get_tasks_by_status, update_task_status, update_admin_response, update_task_response, get_auto_reply_setting, update_auto_reply_setting, get_chat_history, get_chat_threads_by_status
+from ai_processor import process_new_tasks
+# from database import initialize_database, add_new_task, get_credentials, add_credentials, get_tasks_by_status, update_task_status, update_admin_response, update_task_response, get_auto_reply_setting, update_auto_reply_setting
 # --- 1. Flask App and Database Setup ---
-load_dotenv() # โหลดตัวแปรจากไฟล์ .env
+load_dotenv()
 app = Flask(__name__)
 DB_FILE_NAME = "store_database.db"
 initialize_database()
-
-# --- Initialize WebhookHandler globally with a check ---
-channel_secret = os.getenv('LINE_CHANNEL_SECRET')
-if not channel_secret:
-    raise ValueError("LINE_CHANNEL_SECRET environment variable not set.")
-handler = WebhookHandler(channel_secret)
 
 # --- 2. LINE Messaging API Webhook Update Function ---
 def update_line_webhook(access_token, webhook_url):
@@ -34,15 +30,10 @@ def update_line_webhook(access_token, webhook_url):
             'Authorization': f'Bearer {access_token}',
             'Content-Type': 'application/json'
         }
-        # Corrected the key from 'webhookUrl' to 'endpoint'
-        data = {
-            "endpoint": webhook_url
-        }
-        
+        data = { "endpoint": webhook_url }
         api_url = "https://api.line.me/v2/bot/channel/webhook/endpoint"
         response = requests.put(api_url, headers=headers, json=data)
         response.raise_for_status()
-        
         print(f"Webhook URL updated successfully to {webhook_url}")
         return True, "Webhook URL updated successfully."
     except requests.exceptions.HTTPError as err:
@@ -56,198 +47,60 @@ def update_line_webhook(access_token, webhook_url):
 # --- 3. Flask Routes ---
 
 @app.route('/')
-def home():
+def setup():
     """
-    Serves the main web page for entering LINE Channel credentials.
+    Serves the setup page (setup.html) for entering LINE Channel credentials.
     """
-    return render_template_string('''
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ตั้งค่า LINE Bot Webhook</title>
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap');
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f3f4f6;
-        }
-    </style>
-</head>
-<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
+    return render_template('setup.html')
 
-<div class="bg-white rounded-xl shadow-lg p-8 w-full max-w-lg">
-    <h1 class="text-3xl font-bold text-center text-gray-800 mb-2">ตั้งค่า LINE Bot Webhook</h1>
-    <p class="text-center text-gray-500 mb-6">กรุณากรอกข้อมูล Channel API ของคุณ</p>
+@app.route('/api/chat_history/<user_id>/<line_id>')
+def get_chat_history_api(user_id, line_id):
+    """API endpoint to get chat history for a specific LINE user."""
+    history = get_chat_history(user_id, line_id)
+    return jsonify(history)
 
-    <!-- Form for Channel Credentials -->
-    <form id="credentials-form" class="space-y-4">
-        <div>
-            <label for="channel-secret" class="block text-sm font-medium text-gray-700">Channel Secret</label>
-            <input type="password" id="channel-secret" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" required>
-        </div>
-        <div>
-            <label for="channel-access-token" class="block text-sm font-medium text-gray-700">Channel Access Token</label>
-            <input type="password" id="channel-access-token" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" required>
-        </div>
-        <div class="flex items-center justify-center">
-            <button type="submit" class="w-full inline-flex items-center justify-center px-4 py-2 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                บันทึกและสร้าง Webhook
-            </button>
-        </div>
-    </form>
 
-    <!-- Message and Webhook URL Display Area -->
-    <div id="status-message" class="mt-6 text-center text-sm font-medium hidden"></div>
-    <div id="webhook-url-container" class="mt-6 hidden">
-        <p class="text-sm font-medium text-gray-700">Webhook URL ของคุณ:</p>
-        <div class="mt-2 flex rounded-md shadow-sm">
-            <input type="text" id="webhook-url" readonly class="flex-1 block w-full rounded-l-md px-3 py-2 border border-gray-300 bg-gray-50 cursor-text">
-            <button id="copy-button" class="inline-flex items-center px-3 py-2 border border-gray-300 rounded-r-md bg-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-300">
-                คัดลอก
-            </button>
-        </div>
-        <p class="mt-2 text-xs text-gray-500">
-            โปรดนำ URL นี้ไปใส่ในช่อง **Webhook URL** บน LINE Developers Console ของคุณ
-        </p>
-    </div>
-</div>
-
-<script>
-    // Get a unique user ID and store it in localStorage
-    let userId = localStorage.getItem('uniqueUserId');
-    if (!userId) {
-        userId = crypto.randomUUID();
-        localStorage.setItem('uniqueUserId', userId);
-    }
-    
-    // Get elements from the DOM
-    const form = document.getElementById('credentials-form');
-    const statusMessage = document.getElementById('status-message');
-    const webhookUrlContainer = document.getElementById('webhook-url-container');
-    const webhookUrlInput = document.getElementById('webhook-url');
-    const copyButton = document.getElementById('copy-button');
-
-    // Handle form submission
-    form.addEventListener('submit', async (e) => {
-        e.preventDefault();
-
-        // Get user input
-        const channelSecret = document.getElementById('channel-secret').value;
-        const channelAccessToken = document.getElementById('channel-access-token').value;
-
-        // Show loading message
-        statusMessage.textContent = 'กำลังบันทึกข้อมูลและอัปเดต Webhook...';
-        statusMessage.classList.remove('hidden', 'text-green-500', 'text-red-500');
-        statusMessage.classList.add('block', 'text-blue-500');
-
-        try {
-            // Send data to the Flask backend
-            const response = await fetch(`/save_credentials/${userId}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    channelSecret: channelSecret,
-                    channelAccessToken: channelAccessToken
-                })
-            });
-
-            const data = await response.json();
-            
-            // Display status message
-            if (response.ok) {
-                statusMessage.textContent = data.message;
-                statusMessage.classList.remove('text-blue-500', 'text-red-500');
-                statusMessage.classList.add('text-green-500');
-                
-                // Show the generated webhook URL
-                webhookUrlInput.value = data.webhook_url;
-                webhookUrlContainer.classList.remove('hidden');
-            } else {
-                statusMessage.textContent = `เกิดข้อผิดพลาด: ${data.message}`;
-                statusMessage.classList.remove('text-blue-500', 'text-green-500');
-                statusMessage.classList.add('text-red-500');
-                webhookUrlContainer.classList.add('hidden');
-            }
-        } catch (error) {
-            statusMessage.textContent = 'เกิดข้อผิดพลาดในการเชื่อมต่อกับเซิร์ฟเวอร์';
-            statusMessage.classList.remove('text-blue-500', 'text-green-500');
-            statusMessage.classList.add('text-red-500');
-            console.error('Fetch error:', error);
-        }
-    });
-
-    // Handle copy button click
-    copyButton.addEventListener('click', () => {
-        const url = webhookUrlInput.value;
-        if (url) {
-            navigator.clipboard.writeText(url).then(() => {
-                // Show a temporary success message instead of an alert
-                const originalText = copyButton.textContent;
-                copyButton.textContent = 'คัดลอกแล้ว!';
-                setTimeout(() => {
-                    copyButton.textContent = originalText;
-                }, 2000);
-            }).catch(err => {
-                console.error('Failed to copy text: ', err);
-            });
-        }
-    });
-</script>
-
-</body>
-</html>
-    ''')
-
+@app.route('/dashboard/<user_id>')
+def dashboard(user_id):
+    """
+    Serves the dashboard page (dashboard.html) for a specific store (user).
+    """
+    credentials_data = get_credentials(user_id)
+    if not credentials_data:
+        return "Credentials not found. Please set up your channel first.", 404
+    return render_template('dashboard.html', user_id=user_id)
 
 @app.route('/save_credentials/<user_id>', methods=['POST'])
 def save_credentials(user_id):
     """
     Receives user credentials, saves them to SQLite, and updates the webhook.
     """
-    print(f"--- Received POST request for user: {user_id} ---") # DEBUG
+    print(f"--- Received POST request for user: {user_id} ---")
     try:
         data = request.json
         channel_secret = data.get('channelSecret')
         channel_access_token = data.get('channelAccessToken')
 
-        print(f"Received data: Channel Secret: {channel_secret}, Channel Access Token: {channel_access_token}") # DEBUG
+        print(f"Received data: Channel Secret: {channel_secret}, Channel Access Token: {channel_access_token}")
 
         if not channel_secret or not channel_access_token:
-            print("Missing Channel Secret or Access Token.") # DEBUG
+            print("Missing Channel Secret or Access Token.")
             return jsonify({'message': 'Missing Channel Secret or Access Token.'}), 400
 
-        # Save credentials to SQLite
         if not add_credentials(user_id, channel_secret, channel_access_token):
-            print("Failed to save credentials to database.") # DEBUG
+            print("Failed to save credentials to database.")
             return jsonify({'message': 'Failed to save credentials to database.'}), 500
 
-        # Dynamically create webhook URL
-        #
-        #
-        # V V V V V V V V V V V V V V V V V V V V V V V V V V V V V V
-        #
-        # ขั้นตอนสำคัญ: URL นี้ถูกตั้งค่าให้แล้วโดยอัตโนมัติ
-        #
-        # ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^
-        #
-        base_url = "https://4097df1bbb47.ngrok-free.app"
+        # Ensure BASE_URL is set in your .env file
+        base_url = os.getenv('BASE_URL')
+        if not base_url:
+            return jsonify({'message': 'BASE_URL environment variable is not set.'}), 500
+        
         webhook_url = f"{base_url}/webhook/{user_id}"
-        print(f"Generated webhook_url: {webhook_url}") # DEBUG
+        print(f"Generated webhook_url: {webhook_url}")
 
-        # Try to update LINE webhook automatically
         success, message = update_line_webhook(channel_access_token, webhook_url)
-        
-        response = {
-            'message': message,
-            'webhook_url': webhook_url
-        }
-        
+        response = { 'message': message, 'webhook_url': webhook_url }
         if success:
             return jsonify(response), 200
         else:
@@ -257,51 +110,126 @@ def save_credentials(user_id):
         print(f"Error saving credentials: {e}")
         return jsonify({'message': f'Internal Server Error: {e}'}), 500
 
+@app.route('/api/tasks/<user_id>/<status>')
+def get_tasks(user_id, status):
+    """
+    Updated API endpoint to get unique chat threads based on the latest message's status.
+    """
+    # เปลี่ยนการเรียกใช้ฟังก์ชันจาก get_tasks_by_status เป็น get_chat_threads_by_status
+    tasks = get_chat_threads_by_status(user_id, status)
+    return jsonify(tasks)
+
+# แก้ไขฟังก์ชัน api_send_admin_reply ให้ใช้ Line ID ของลูกค้า
+@app.route('/api/send_admin_reply/<line_id>', methods=['POST'])
+def api_send_admin_reply(line_id):
+    """
+    Handles sending an admin reply using the LINE Push API for reliable delivery.
+    """
+    data = request.json
+    task_id = data.get('taskId')
+    reply_message = data.get('replyMessage')
+    store_id = data.get('storeId') # รับ storeId เพิ่มเข้ามา
+
+    if not task_id or not reply_message or not store_id:
+        return jsonify({'message': 'Missing required fields (taskId, replyMessage, or storeId).'}), 400
+
+    credentials_data = get_credentials(store_id)
+    if not credentials_data:
+        return jsonify({'message': 'Credentials not found for this store.'}), 404
+    
+    try:
+        line_bot_api = LineBotApi(credentials_data['channel_access_token'])
+        
+        # ใช้ push_message เพื่อส่งข้อความไปหาลูกค้าโดยตรงด้วย line_id
+        line_bot_api.push_message(
+            line_id, # <-- ตรงนี้คือ line_id ของลูกค้า
+            TextSendMessage(text=f"แอดมิน: {reply_message}")
+        )
+        
+        # อัปเดตสถานะในฐานข้อมูลหลังจากส่งข้อความสำเร็จ
+        update_admin_response(task_id, reply_message)
+        update_task_status(task_id, 'Responded')
+        
+        return jsonify({'message': 'Reply sent and task updated successfully.'}), 200
+    except LineBotApiError as e:
+        print(f"LINE API Error when sending reply: {e}")
+        return jsonify({'message': f'Failed to send reply via LINE API: {e.message}'}), 500
+    except Exception as e:
+        print(f"Error sending admin reply: {e}")
+        return jsonify({'message': 'Internal server error.'}), 500
+
+@app.route('/api/update_task_status/<user_id>', methods=['POST'])
+def api_update_task_status(user_id):
+    data = request.json
+    task_id = data.get('taskId')
+    new_status = data.get('newStatus')
+
+    if not task_id or not new_status:
+        return jsonify({'message': 'Missing task ID or new status.'}), 400
+
+    update_task_status(task_id, new_status)
+    return jsonify({'message': 'Task status updated successfully.'}), 200
+
 @app.route('/webhook/<user_id>', methods=['POST'])
 def callback(user_id):
-    """
-    Handles LINE webhook events for a specific user ID.
-    """
     print(f"--- LINE Webhook Request for user: {user_id} ---")
-
-    # Get credentials from SQLite based on user_id
+    
     credentials_data = get_credentials(user_id)
-
     if not credentials_data:
         print(f"Credentials not found for user ID: {user_id}")
         return 'Not Found', 404
 
-    # The global handler is used for the decorator, but the dynamic handler is what we will use to handle the request.
     channel_secret_dynamic = credentials_data['channel_secret']
-    line_bot_api_dynamic = LineBotApi(credentials_data['channel_access_token'])
+    channel_access_token_dynamic = credentials_data['channel_access_token']
+    
     handler_dynamic = WebhookHandler(channel_secret_dynamic)
+    line_bot_api_dynamic = LineBotApi(channel_access_token_dynamic)
 
-    # Get request body and signature
     body = request.get_data(as_text=True)
     signature = request.headers.get('X-Line-Signature')
     
-    # Try to handle the webhook event
     try:
-        # We need to tell the handler what to do with messages.
-        # So we have to define a message handler for our dynamic handler.
         @handler_dynamic.add(MessageEvent, message=TextMessage)
         def handle_message(event):
-            user_id_event = event.source.user_id
             user_message = event.message.text
             reply_token = event.reply_token
+            line_user_id = event.source.user_id
 
-            # Add the user's message to the tasks queue
-            add_new_task(user_id_event, reply_token, user_message)
+            # บันทึกข้อความของลูกค้าลงในฐานข้อมูล
+            task_id = add_new_task(user_id, line_user_id, reply_token, user_message)
+            
+            # --- ตรงนี้คือส่วนที่แก้ไข ---
+            is_auto_reply_enabled = get_auto_reply_setting(user_id)
+            if is_auto_reply_enabled:
+                print("Auto-reply is enabled. Generating AI response...")
+                
+                try:
+                    # เรียกใช้ฟังก์ชันจาก ai_processor.py โดยตรง
+                    process_new_tasks(user_id, line_user_id, user_message, task_id)
 
-            # Immediately send a "received" message back to the user
-            try:
-                line_bot_api_dynamic.reply_message(
-                    reply_token,
-                    TextSendMessage(text="ได้รับข้อความของคุณแล้วค่ะ กรุณารอสักครู่ กำลังดำเนินการค่ะ")
-                )
-            except Exception as e:
-                print(f"Error replying to user: {e}")
-
+                except Exception as e:
+                    print(f"Error during AI processing: {e}")
+                    line_bot_api_dynamic.reply_message(
+                        reply_token,
+                        TextSendMessage(text="ขออภัยค่ะ ระบบกำลังมีปัญหา ไม่สามารถตอบกลับได้ในขณะนี้")
+                    )
+        # 🟢 Handler สำหรับ Sticker Message
+        @handler_dynamic.add(MessageEvent, message=StickerMessage)
+        def handle_sticker_message(event):
+            # ตัวอย่าง: ตอบกลับด้วยข้อความปกติเมื่อได้รับ Sticker
+            line_bot_api_dynamic.reply_message(
+                event.reply_token,
+                TextSendMessage(text="สวัสดีค่ะมีอะไรสอบถามแจ้งได้เลยนะคะ")
+            )
+            
+        # 🟢 Handler สำหรับ Image Message
+        @handler_dynamic.add(MessageEvent, message=ImageMessage)
+        def handle_image_message(event):
+            # ตัวอย่าง: ตอบกลับด้วยข้อความปกติเมื่อได้รับ Image
+            line_bot_api_dynamic.reply_message(
+                event.reply_token,
+                TextSendMessage(text="ขอบคุณสำหรับรูปภาพค่ะ รบกวนพิมพ์คำถาม หรือมีอะไรสอบถามแจ้งได้เลยนะคะ")
+            )
         handler_dynamic.handle(body, signature)
 
     except InvalidSignatureError:
@@ -309,12 +237,31 @@ def callback(user_id):
         return 'Invalid signature', 400
     except LineBotApiError as e:
         print(f"LINE API Error: {e}")
-        return 'LINE API Error', 500
+        return f'LINE API Error: {e}', 500
     except Exception as e:
         print(f"Error handling webhook: {e}")
-        return 'Internal Server Error', 500
+        return f'Internal Server Error: {e}', 500
     
     return 'OK', 200
+
+# NEW: API Endpoint for auto-reply setting
+@app.route('/api/auto_reply_setting/<user_id>')
+def get_auto_reply_status(user_id):
+    is_enabled = get_auto_reply_setting(user_id)
+    return jsonify({'is_enabled': bool(is_enabled)})
+
+@app.route('/api/update_auto_reply_setting/<user_id>', methods=['POST'])
+def update_auto_reply_status(user_id):
+    data = request.json
+    is_enabled = data.get('is_enabled')
+    if is_enabled is None:
+        return jsonify({'message': 'Missing is_enabled parameter.'}), 400
+    
+    status_int = 1 if is_enabled else 0
+    update_auto_reply_setting(user_id, status_int)
+    return jsonify({'message': 'Auto-reply setting updated successfully.'}), 200
+
+# ... (โค้ดส่วนอื่น ๆ เหมือนเดิม)
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 9000))

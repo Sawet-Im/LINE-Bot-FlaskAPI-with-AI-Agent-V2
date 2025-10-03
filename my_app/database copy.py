@@ -1,5 +1,3 @@
-#database.py
-
 import sqlite3
 import datetime
 
@@ -31,18 +29,15 @@ def initialize_database():
                 description TEXT NOT NULL,
                 start_date TEXT,
                 end_date TEXT,
-                menu_id INTEGER,
-                store_id INTEGER,
-                FOREIGN KEY(menu_id) REFERENCES menu(menu_id),
-                FOREIGN KEY(store_id) REFERENCES stores(store_id)
+                FOREIGN KEY(menu_id) REFERENCES menu(menu_id)
             )
         ''')
         
         # ตาราง stores ถูกปรับเปลี่ยนเพื่อเก็บการตั้งค่าการตอบกลับอัตโนมัติ
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS stores (
-                store_id INTEGER PRIMARY KEY,
-                user_id TEXT,
+                store_id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
                 store_name TEXT,
                 opening_hours TEXT,
                 status TEXT,
@@ -76,18 +71,6 @@ def initialize_database():
                 channel_access_token TEXT NOT NULL
             )
         ''')
-        
-        # เพิ่มตารางวัตถุดิบสำหรับเมนู
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS ingredients (
-                ingredient_id INTEGER PRIMARY KEY,
-                menu_id INTEGER,
-                ingredient_name TEXT NOT NULL,
-                quantity TEXT,
-                ingredient_type TEXT,
-                FOREIGN KEY(menu_id) REFERENCES menu(menu_id)
-            )
-        ''')
 
         # Add initial data if tables are empty
         seed_data(conn, cursor)
@@ -103,80 +86,36 @@ def initialize_database():
 
 def seed_data(conn, cursor):
     """Inserts initial data into tables if they are empty."""
-    cursor.execute("SELECT COUNT(*) FROM stores")
-    if cursor.fetchone()[0] == 0:
-        stores_data = [
-            (1, 'user1', 'สาขาพระราม 9', 'Open', 'อาคารฟอร์จูนทาวน์ ชั้น 2', 1),
-            (2, 'user2', 'สาขาสุขุมวิท 21', 'Closed', 'อาคาร GMM Grammy Place', 1),
-            (3, 'user3', 'สาขาพญาไท', 'Open', 'อาคาร CP Tower', 1)
-        ]
-        cursor.executemany("INSERT INTO stores (store_id, user_id, store_name, status, location, is_auto_reply_enabled) VALUES (?, ?, ?, ?, ?, ?)", stores_data)
-        conn.commit()
-    
     cursor.execute("SELECT COUNT(*) FROM menu")
     if cursor.fetchone()[0] == 0:
         menu_data = [
-            (1, 'ข้าวผัดกะเพราไก่', 50.00, 'อาหารจานเดียว', 1),
-            (2, 'ผัดซีอิ๊วหมู', 55.00, 'อาหารจานเดียว', 1),
-            (3, 'ต้มยำกุ้ง', 80.00, 'อาหารไทย', 2),
-            (4, 'แกงเขียวหวานเนื้อ', 75.00, 'อาหารไทย', 2),
-            (5, 'ชาเย็น', 25.00, 'เครื่องดื่ม', 3),
-            (6, 'กาแฟ', 30.00, 'เครื่องดื่ม', 3)
+            ('ข้าวผัดกะเพราไก่', 50.00),
+            ('ผัดซีอิ๊วหมู', 55.00),
+            ('ต้มยำกุ้ง', 80.00),
+            ('แกงเขียวหวานเนื้อ', 75.00),
+            ('ชาเย็น', 25.00),
+            ('กาแฟ', 30.00)
         ]
-        cursor.executemany("INSERT INTO menu (menu_id, menu_name, price, category, store_id) VALUES (?, ?, ?, ?, ?)", menu_data)
+        cursor.executemany("INSERT INTO menu (menu_name, price) VALUES (?, ?)", menu_data)
         conn.commit()
-        
+
     cursor.execute("SELECT COUNT(*) FROM promotions")
     if cursor.fetchone()[0] == 0:
         promotions_data = [
-            ('WELCOME10', 'ลด 10% สำหรับลูกค้าใหม่', '2025-01-01', '2025-12-31', None, 1),
-            ('BUY3GET1', 'ซื้อ 3 จานฟรี 1 จาน', '2025-09-01', '2025-10-31', 1, 1),
-            ('SUMMER_SALE', 'โปรโมชั่นฤดูร้อน ลด 20%', '2025-06-01', '2025-08-31', 3, 2),
-            ('COFFEE_DEAL', 'ซื้อกาแฟแก้วที่ 2 ลด 50%', '2025-09-15', '2025-11-15', 6, 3)
+            ('WELCOME10', 'ลด 10% สำหรับลูกค้าใหม่'),
+            ('BUY3GET1', 'ซื้อ 3 จานฟรี 1 จาน')
         ]
-        cursor.executemany("INSERT INTO promotions (promo_code, description, start_date, end_date, menu_id, store_id) VALUES (?, ?, ?, ?, ?, ?)", promotions_data)
+        cursor.executemany("INSERT INTO promotions (promo_code, description) VALUES (?, ?)", promotions_data)
         conn.commit()
-    
-    cursor.execute("SELECT COUNT(*) FROM ingredients")
-    if cursor.fetchone()[0] == 0:
-        ingredients_data = [
-            (1, 'ข้าวสวย', '1 ถ้วย', 'Grain'),        
-            (1, 'เนื้อไก่', '100 กรัม', 'Meat'),
-            (1, 'ใบกะเพรา', '5 กรัม', 'Vegetable'),  
-            (2, 'เส้นใหญ่', '150 กรัม', 'Wheat/Grain'),
-            (2, 'เนื้อหมู', '100 กรัม', 'Meat'),
-            (3, 'กุ้งสด', '200 กรัม', 'Seafood'),    
-            (3, 'พริก', '3 เม็ด', 'Vegetable'),
-            (4, 'เนื้อวัว', '150 กรัม', 'Meat'),
-            (4, 'มะเขือ', '2 ลูก', 'Vegetable'),
-            (5, 'ชาซีลอน', '1 ช้อนชา', 'Spice'),    
-            (5, 'นมสด', '30 มล.', 'Dairy'),     
-            (6, 'ผงกาแฟ', '1 ช้อนชา', 'Spice')
-        ]
-        cursor.executemany("INSERT INTO ingredients (menu_id, ingredient_name, quantity,ingredient_type) VALUES (?, ?, ?, ?)", ingredients_data)
-        conn.commit()
-    
-    # อัปเดตข้อมูล stores
+
     cursor.execute("SELECT COUNT(*) FROM stores")
     if cursor.fetchone()[0] == 0:
         stores_data = [
-            ('user1', 'สาขาพระราม 9', 'Open', 'อาคารฟอร์จูนทาวน์ ชั้น 2', 1),
-            ('user2', 'สาขาสุขุมวิท 21', 'Closed', 'อาคาร GMM Grammy Place', 1),
-            ('user3', 'สาขาพญาไท', 'Open', 'อาคาร CP Tower', 1)
+            ('สาขาพระราม 9', 'Open', 'อาคารฟอร์จูนทาวน์ ชั้น 2', 1), # ค่า 1 หมายถึงเปิดใช้งาน
+            ('สาขาสุขุมวิท 21', 'Closed', 'อาคาร GMM Grammy Place', 1),
+            ('สาขาพญาไท', 'Open', 'อาคาร CP Tower', 1)
         ]
-        cursor.executemany("INSERT INTO stores (user_id, store_name, status, location, is_auto_reply_enabled) VALUES (?, ?, ?, ?, ?)", stores_data)
-        conn.commit()
-
-# ในโค้ด seed_data()
-    cursor.execute("SELECT COUNT(*) FROM promotions")
-    if cursor.fetchone()[0] == 0:
-        promotions_data = [
-            ('WELCOME10', 'ลด 10% สำหรับลูกค้าใหม่', None, None, '2025-01-01', '2025-12-31'),
-            ('BUY3GET1', 'ซื้อ 3 จานฟรี 1 จาน', 1, 1, '2025-09-01', '2025-10-31'),
-            ('SUMMER_SALE', 'โปรโมชั่นฤดูร้อน ลด 20%', 3, 2, '2025-06-01', '2025-08-31'),
-            ('COFFEE_DEAL', 'ซื้อกาแฟแก้วที่ 2 ลด 50%', 6, 3, '2025-09-15', '2025-11-15')
-        ]
-        cursor.executemany("INSERT INTO promotions (promo_code, description, menu_id, store_id, start_date, end_date) VALUES (?, ?, ?, ?, ?, ?)", promotions_data)
+        cursor.executemany("INSERT INTO stores (store_name, status, location, is_auto_reply_enabled) VALUES (?, ?, ?, ?)", stores_data)
         conn.commit()
     
 def add_credentials(user_id, channel_secret, channel_access_token):
@@ -294,7 +233,7 @@ def update_task_status(task_id, new_status):
     finally:
         conn.close()
 
-def update_task_response(task_id, response,sql_text):
+def update_task_response(task_id, response):
     """
     Updates the AI's response, status, and records a dedicated response timestamp.
     """
@@ -307,11 +246,10 @@ def update_task_response(task_id, response,sql_text):
             SET
                 ai_response = ?,
                 status = 'Responded',
-                response_timestamp = ?,
-                using_sql = ?
+                response_timestamp = ?
             WHERE
                 task_id = ?
-        """, (response, timestamp, sql_text, task_id))
+        """, (response, timestamp, task_id))
         conn.commit()
     except sqlite3.Error as e:
         print(f"Database error updating AI response: {e}")
@@ -342,7 +280,7 @@ def update_admin_response(task_id, response):
         conn.close()
 
 
-def get_chat_history(user_id, line_id, limit=20):
+def get_chat_history(user_id, line_id):
     """
     Fetches the entire chat history for a specific LINE user.
     Args:
@@ -364,75 +302,6 @@ def get_chat_history(user_id, line_id, limit=20):
     finally:
         conn.close()
 
-
-
-def get_chat_history_for_memory(user_id, line_id, limit=20):  # <--- MUST include 'limit' here
-    """Fetches the chat history for a specific LINE user, limited by the last N messages."""
-    conn = sqlite3.connect(DB_FILE_NAME)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-    try:
-        # Use LIMIT in the SQL query
-        cursor.execute("""
-            SELECT user_message, ai_response
-            FROM tasks 
-            WHERE user_id = ? AND line_id = ? AND status IN ('Responded')
-            ORDER BY timestamp DESC
-            LIMIT ?
-        """, (user_id, line_id, limit)) # <--- MUST pass 'limit' here
-        
-        # ... (rest of the code to reverse and return tasks) ...
-        tasks = cursor.fetchall()
-        return [dict(task) for task in reversed(tasks)]
-        
-    except sqlite3.Error as e:
-        print(f"Database error fetching chat history: {e}")
-        return []
-    finally:
-        conn.close()
-
-# def get_chat_threads_by_status(user_id, status):
-#     """
-#     Fetches a list of unique line_ids where the latest task has the specified status.
-#     This is used to group chats by the status of their most recent message.
-#     """
-#     conn = sqlite3.connect(DB_FILE_NAME)
-#     conn.row_factory = sqlite3.Row
-#     cursor = conn.cursor()
-#     try:
-#         cursor.execute("""
-#             SELECT
-#                 t1.*
-#             FROM
-#                 tasks t1
-#             JOIN
-#                 (
-#                     SELECT
-#                         line_id,
-#                         MAX(timestamp) AS max_timestamp
-#                     FROM
-#                         tasks
-#                     WHERE
-#                         user_id = ?
-#                     GROUP BY
-#                         line_id
-#                 ) AS t2 ON t1.line_id = t2.line_id AND t1.timestamp = t2.max_timestamp
-#             WHERE
-#                 t1.user_id = ? AND t1.status = ?
-#             ORDER BY
-#                 t1.timestamp DESC
-#         """, (user_id, user_id, status))
-        
-#         threads = cursor.fetchall()
-#         return [dict(thread) for thread in threads]
-#     except sqlite3.Error as e:
-#         print(f"Database error fetching chat threads: {e}")
-#         return []
-#     finally:
-#         conn.close()
-
-# database.py
-
 def get_chat_threads_by_status(user_id, status):
     """
     Fetches a list of unique line_ids where the latest task has the specified status.
@@ -442,26 +311,23 @@ def get_chat_threads_by_status(user_id, status):
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     try:
-        # ใช้ CTE (Common Table Expression) เพื่อหา task_id ล่าสุดของแต่ละ Line ID
-        # และใช้ Subquery เพื่อกรองผลลัพธ์
         cursor.execute("""
-            WITH LatestTasks AS (
-                SELECT
-                    line_id,
-                    MAX(timestamp) AS max_timestamp
-                FROM
-                    tasks
-                WHERE
-                    user_id = ?
-                GROUP BY
-                    line_id
-            )
             SELECT
                 t1.*
             FROM
                 tasks t1
-            INNER JOIN
-                LatestTasks t2 ON t1.line_id = t2.line_id AND t1.timestamp = t2.max_timestamp
+            JOIN
+                (
+                    SELECT
+                        line_id,
+                        MAX(timestamp) AS max_timestamp
+                    FROM
+                        tasks
+                    WHERE
+                        user_id = ?
+                    GROUP BY
+                        line_id
+                ) AS t2 ON t1.line_id = t2.line_id AND t1.timestamp = t2.max_timestamp
             WHERE
                 t1.user_id = ? AND t1.status = ?
             ORDER BY
@@ -476,33 +342,17 @@ def get_chat_threads_by_status(user_id, status):
     finally:
         conn.close()
 
-# 🟢 ฟังก์ชันใหม่: ดึงข้อมูล Store ID และ Store Name
-def get_store_info_direct(user_id: str):
-    """Retrieves store_id and store_name for a given user_id using direct SQLite connection."""
+def get_chat_history(user_id, line_id):
+    """Fetches the entire chat history for a specific LINE user."""
     conn = sqlite3.connect(DB_FILE_NAME)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
-    
     try:
-        cursor.execute("""
-            SELECT store_id, store_name
-            FROM stores 
-            WHERE user_id = ?
-        """, (user_id,))
-        
-        result = cursor.fetchone()
-        
-        if result:
-            # 🟢 ดึงค่าจาก Row Object
-            store_id = str(result['store_id']) # ให้อยู่ในรูป string เพื่อส่งเข้า Prompt
-            store_name = result['store_name']
-            return store_id, store_name
-        
+        cursor.execute("SELECT * FROM tasks WHERE user_id = ? AND line_id = ? ORDER BY timestamp ASC", (user_id, line_id))
+        tasks = cursor.fetchall()
+        return [dict(task) for task in tasks]
     except sqlite3.Error as e:
-        print(f"Database error fetching store info for {user_id}: {e}")
-        
+        print(f"Database error fetching chat history: {e}")
+        return []
     finally:
         conn.close()
-
-    # กรณีหาไม่เจอหรือเกิด Error
-    return None, "ร้านอร่อยทุกวัน (ไม่ระบุ)"
