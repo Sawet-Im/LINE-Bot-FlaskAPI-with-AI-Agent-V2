@@ -91,14 +91,14 @@ python api_app.py
 
 # 5. Flow การทำงานของระบบ (System Data Flow)
 ## 5.1. ภาพรวม Flow การทำงาน
-### 1. Incoming Request (LINE): ลูกค้าส่งข้อความผ่าน LINE
-### 2. API Gateway (Flask/Gunicorn): LINE Webhook ส่ง Payload มายัง api_app.py
-### 3. Core Logic (ai_processor.py): เริ่มต้นการประมวลผล Task
-### 4. Context Loading (database.py): ดึง Store ID, Store Name, และ Chat History จาก SQLite โดยตรง
-### 5. Agent Initialization (agent_setup.py): สร้าง Agent โดยใช้ Prompt ที่มีบริบท (Store ID) และ Memory (Chat History) ที่โหลดมา
-### 6. Agent Invocation: Agent ประมวลผลข้อความ
-### 7. Response Generation: Agent แปลงผลลัพธ์ SQL เป็นคำตอบภาษาไทยที่เป็นมิตร
-### 8. Output Response (LINE): ส่งข้อความตอบกลับไปยังลูกค้าผ่าน LINE
+###### 1. Incoming Request (LINE): ลูกค้าส่งข้อความผ่าน LINE
+###### 2. API Gateway (Flask/Gunicorn): LINE Webhook ส่ง Payload มายัง api_app.py
+###### 3. Core Logic (ai_processor.py): เริ่มต้นการประมวลผล Task
+###### 4. Context Loading (database.py): ดึง Store ID, Store Name, และ Chat History จาก SQLite โดยตรง
+###### 5. Agent Initialization (agent_setup.py): สร้าง Agent โดยใช้ Prompt ที่มีบริบท (Store ID) และ Memory (Chat History) ที่โหลดมา
+###### 6. Agent Invocation: Agent ประมวลผลข้อความ
+###### 7. Response Generation: Agent แปลงผลลัพธ์ SQL เป็นคำตอบภาษาไทยที่เป็นมิตร
+###### 8. Output Response (LINE): ส่งข้อความตอบกลับไปยังลูกค้าผ่าน LINE
 
 ## 5.2. ลำดับการประมวลผล (Sequential Steps)
 Step | ไฟล์ที่ทำงาน | รายละเอียดการทำงานและ Context
@@ -121,9 +121,9 @@ Function | ฟังก์ชัน get_chat_history_for_memory() ใน databas
 Memory Setup | ใช้ ConversationBufferMemory ของ LangChain เพื่อจัดเก็บประวัติที่โหลดมาจากฐานข้อมูลไว้ในตัว Agent | agent_setup.py
 ## 6.2. การใช้หน่วยความจำเพื่อสะสมเงื่อนไขกรอง
 การใช้ Memory ในโปรเจกต์นี้ไม่ได้มีเพียงแค่การจดจำเท่านั้น แต่เป็นการ บังคับ Agent ให้รวมข้อจำกัดหลายชั้น เข้าด้วยกันก่อนจะรัน SQL:
- 1.การอ่าน History: ในไฟล์ agent_setup.py ส่วน initialize_sql_agent จะมีการโหลด chat_history และส่งเข้าใน memory
- 2.การนำไปใช้ใน Prompt: AGENT_PREFIX ถูกเขียนขึ้นเพื่อสั่งให้ Agent ต้องอ่าน ข้อความใน chat_history ทุกครั้งที่มีการขอแนะนำเมนู
- 3.การสะสม Logic: เมื่อลูกค้าตอบว่า "ไม่ทานทะเล" แล้วตามด้วย "ไม่ทานเนื้อ" Agent จะเห็นข้อจำกัดทั้งสองใน Memory และถูกบังคับให้รวมทั้งสองเงื่อนไขเข้าด้วยกันในคำสั่ง SQL เดียว เช่น:
+###### 1.การอ่าน History: ในไฟล์ agent_setup.py ส่วน initialize_sql_agent จะมีการโหลด chat_history และส่งเข้าใน memory
+###### 2.การนำไปใช้ใน Prompt: AGENT_PREFIX ถูกเขียนขึ้นเพื่อสั่งให้ Agent ต้องอ่าน ข้อความใน chat_history ทุกครั้งที่มีการขอแนะนำเมนู
+###### 3.การสะสม Logic: เมื่อลูกค้าตอบว่า "ไม่ทานทะเล" แล้วตามด้วย "ไม่ทานเนื้อ" Agent จะเห็นข้อจำกัดทั้งสองใน Memory และถูกบังคับให้รวมทั้งสองเงื่อนไขเข้าด้วยกันในคำสั่ง SQL เดียว เช่น:
 ```
 ... WHERE T1.store_id = {store_id} 
 AND T1.menu_id NOT IN (SELECT menu_id FROM ingredients WHERE ingredient_name LIKE '%ทะเล%') 
