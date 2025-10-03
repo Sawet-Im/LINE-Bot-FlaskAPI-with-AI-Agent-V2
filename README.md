@@ -6,16 +6,17 @@
 * Dynamic Context & Filtering: Agent ถูกตั้งค่าให้รับ Store ID และ Store Name ตั้งแต่เริ่มต้น ทำให้การกรองข้อมูลใน SQL แม่นยำและป้องกันการข้ามร้านค้าได้
 * Conversation Memory: ใช้ ConversationBufferMemory เพื่อเก็บประวัติการสนทนา ทำให้ Agent จดจำข้อจำกัดของลูกค้า (เช่น "ไม่ทานเนื้อ", "แพ้อาหารทะเล") และรวมเงื่อนไขในการค้นหาเมนูได้
 * API Integration: เชื่อมต่อกับ LINE Messaging API ผ่าน Webhook และใช้ Flask/Gunicorn เพื่อรองรับการทำงานใน Production
+* เชื่อมต่อ Webhook LINE ให้อัตโนมัติ
+* สามารถเลือกให้ AI ตอบอัตโนมัติ หรือ AI สร้างข้อความให้ admin แก้ไขคำตอบได้
 
 # 1. โครงสร้างโปรเจกต์
 โปรดสร้างไฟล์และโฟลเดอร์ตามโครงสร้างด้านล่างนี้:
 ```
+├── templates/
+│   ├── dashboard.html    # dashboard สำหรับดูแชท
+│   ├── setup.html        # กรอก Channel Secret และ Channel Access Token ของคุณ
 ├── my_app/
-│   ├── index.html        # การตั้งค่า Webhook อัตโนมัติ
-│   ├── api_app.py        # Flask API สำหรับรับข้อความจาก LINE
-├── my_app/
-│   ├── index.html        # การตั้งค่า Webhook อัตโนมัติ
-│   ├── api_app.py        # ไฟล์ Flask หลักสำหรับรัน Webhook
+│   ├── api_app.py        # ไฟล์ FlaskAPI หลักสำหรับรัน Webhook
 │   ├── admin_app.py      # Streamlit UI สำหรับ Admin
 │   ├── ai_processor.py   # Logic หลัก: รับ task, เรียก Agent, จัดการ Error/Retry Logic
 │   ├── database.py       # จัดการการเชื่อมต่อ SQLite, การดึง Store Info และ Chat History
@@ -83,10 +84,10 @@ python api_app.py
 ```
 
 # 4. ตั้งค่าบนหน้าเว็บ
-###### 1. เปิดเว็บเบราว์เซอร์แล้วไปที่ http://localhost:9000
-###### 2. กรอก Channel Secret และ Channel Access Token ของคุณ
-###### 3. กดปุ่ม "บันทึกและสร้าง Webhook"
-###### หากทุกอย่างถูกต้อง หน้าเว็บจะแสดงข้อความว่า "Webhook URL updated successfully." พร้อมกับ Webhook URL ที่สมบูรณ์
+##### 1. เปิดเว็บเบราว์เซอร์แล้วไปที่ http://localhost:9000
+##### 2. กรอก Channel Secret และ Channel Access Token ของคุณ
+##### 3. กดปุ่ม "บันทึกและสร้าง Webhook"
+##### หากทุกอย่างถูกต้อง หน้าเว็บจะแสดงข้อความว่า "Webhook URL updated successfully." พร้อมกับ Webhook URL ที่สมบูรณ์
 
 
 # 5. Flow การทำงานของระบบ (System Data Flow)
