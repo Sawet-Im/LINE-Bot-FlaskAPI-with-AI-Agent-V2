@@ -58,12 +58,12 @@ BASE_URL="NGROK_URL"
 ```
 
 # 3. รันโปรเจกต์และตั้งค่า ngrok
-## 3.1 เปิด Terminal1 รันคำสั่ง ngrok เพื่อเปิด Public URL:
+##### 3.1 เปิด Terminal1 รันคำสั่ง ngrok เพื่อเปิด Public URL:
 ```
 ngrok http 9000
 ```
 คุณจะได้รับ Public URL ที่ขึ้นต้นด้วย https:// (เช่น https://example.ngrok-free.app) โปรด คัดลอก URL นี้ไว้
-## 3.2 ขั้นตอนสำคัญ: เปิดไฟล์ api_app.py แล้วนำ URL ที่คัดลอกมาไปวางแทนที่ค่าของตัวแปร base_url ตามโค้ดตัวอย่างด้านล่าง:
+##### 3.2 ขั้นตอนสำคัญ: เปิดไฟล์ api_app.py แล้วนำ URL ที่คัดลอกมาไปวางแทนที่ค่าของตัวแปร base_url ตามโค้ดตัวอย่างด้านล่าง:
 ```
 # V V V V V V V V V V V V V V V V V V V V V V V V V V V V V V
 #
@@ -83,10 +83,10 @@ python api_app.py
 ```
 
 # 4. ตั้งค่าบนหน้าเว็บ
-## 4.1เปิดเว็บเบราว์เซอร์แล้วไปที่ http://localhost:9000
-## 4.2กรอก Channel Secret และ Channel Access Token ของคุณ
-## 4.3กดปุ่ม "บันทึกและสร้าง Webhook"
-หากทุกอย่างถูกต้อง หน้าเว็บจะแสดงข้อความว่า "Webhook URL updated successfully." พร้อมกับ Webhook URL ที่สมบูรณ์
+###### 1. เปิดเว็บเบราว์เซอร์แล้วไปที่ http://localhost:9000
+###### 2. กรอก Channel Secret และ Channel Access Token ของคุณ
+###### 3. กดปุ่ม "บันทึกและสร้าง Webhook"
+###### หากทุกอย่างถูกต้อง หน้าเว็บจะแสดงข้อความว่า "Webhook URL updated successfully." พร้อมกับ Webhook URL ที่สมบูรณ์
 
 
 # 5. Flow การทำงานของระบบ (System Data Flow)
