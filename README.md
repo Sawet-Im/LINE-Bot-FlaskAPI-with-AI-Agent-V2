@@ -121,9 +121,9 @@ Function | ฟังก์ชัน get_chat_history_for_memory() ใน databas
 Memory Setup | ใช้ ConversationBufferMemory ของ LangChain เพื่อจัดเก็บประวัติที่โหลดมาจากฐานข้อมูลไว้ในตัว Agent | agent_setup.py
 ## 6.2. การใช้หน่วยความจำเพื่อสะสมเงื่อนไขกรอง
 การใช้ Memory ในโปรเจกต์นี้ไม่ได้มีเพียงแค่การจดจำเท่านั้น แต่เป็นการ บังคับ Agent ให้รวมข้อจำกัดหลายชั้น เข้าด้วยกันก่อนจะรัน SQL:
-### 1.การอ่าน History: ในไฟล์ agent_setup.py ส่วน initialize_sql_agent จะมีการโหลด chat_history และส่งเข้าใน memory
-### 2.การนำไปใช้ใน Prompt: AGENT_PREFIX ถูกเขียนขึ้นเพื่อสั่งให้ Agent ต้องอ่าน ข้อความใน chat_history ทุกครั้งที่มีการขอแนะนำเมนู
-### 3.การสะสม Logic: เมื่อลูกค้าตอบว่า "ไม่ทานทะเล" แล้วตามด้วย "ไม่ทานเนื้อ" Agent จะเห็นข้อจำกัดทั้งสองใน Memory และถูกบังคับให้รวมทั้งสองเงื่อนไขเข้าด้วยกันในคำสั่ง SQL เดียว เช่น:
+    1.การอ่าน History: ในไฟล์ agent_setup.py ส่วน initialize_sql_agent จะมีการโหลด chat_history และส่งเข้าใน memory
+    2.การนำไปใช้ใน Prompt: AGENT_PREFIX ถูกเขียนขึ้นเพื่อสั่งให้ Agent ต้องอ่าน ข้อความใน chat_history ทุกครั้งที่มีการขอแนะนำเมนู
+    3.การสะสม Logic: เมื่อลูกค้าตอบว่า "ไม่ทานทะเล" แล้วตามด้วย "ไม่ทานเนื้อ" Agent จะเห็นข้อจำกัดทั้งสองใน Memory และถูกบังคับให้รวมทั้งสองเงื่อนไขเข้าด้วยกันในคำสั่ง SQL เดียว เช่น:
 ```
 ... WHERE T1.store_id = {store_id} 
 AND T1.menu_id NOT IN (SELECT menu_id FROM ingredients WHERE ingredient_name LIKE '%ทะเล%') 
