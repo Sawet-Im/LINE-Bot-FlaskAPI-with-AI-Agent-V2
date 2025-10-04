@@ -147,3 +147,22 @@ AND T1.menu_id NOT IN (SELECT menu_id FROM ingredients WHERE ingredient_name LIK
 ----- | ----- | -----
 Gemini Rate Limit (429/503) | ai_processor.py | Exponential Backoff: มี Logic ในการหน่วงเวลาและ Retry คำขอไปยัง Gemini API อัตโนมัติ (ตั้งค่า MAX_RETRIES และ BASE_WAIT_TIME ในโค้ด)
 ประสิทธิภาพ LLM| .env และ agent_setup.py | Model Choice: แนะนำให้ใช้ LLM_MODEL="gemini-2.5-flash" เพื่อความเร็วและประสิทธิภาพของโควตา
+
+# 9. การอัปเดต LINE Webhook อัตโนมัติ
+ระบบของเราออกแบบมาเพื่อลดขั้นตอนการตั้งค่า Webhook ใน LINE Developers Console โดยการใช้ฟังก์ชัน update_line_webhook เพื่อเชื่อมต่อ Channel ของร้านค้าเข้ากับระบบหลังบ้าน (Backend) ของเราโดยอัตโนมัติ
+##### 1. ฟังก์ชันหลัก: update_line_webhook
+รายละเอียด | กลไกการทำงาน 
+----- | ----- 
+วัตถุประสงค์ | อัปเดตปลายทาง (Endpoint) ที่ LINE จะส่งข้อความจากลูกค้าเข้ามาให้ระบบของเราประมวลผล 
+พารามิเตอร์ | รับ access_token (Channel Access Token) และ webhook_url (URL ที่ระบบของเราสร้างขึ้น)
+กลไก API | ส่งคำขอแบบ PUT ไปยัง LINE Messaging API Endpoint (https://api.line.me/v2/bot/channel/webhook/endpoint) พร้อมแนบ Access Token ใน Header เพื่อยืนยันสิทธิ์
+ผลลัพธ์ | หากสำเร็จ (สถานะ 200 OK) LINE Channel จะเปลี่ยนไปชี้ Webhook URL มาที่เซิร์ฟเวอร์ของเราทันที
+##### 2. Flow การทำงาน: ตั้งค่า Webhook อัตโนมัติ
+ขั้นตอน | การทำงานและไฟล์ที่เกี่ยวข้อง | ผลลัพธ์ที่ได้
+----- | ----- | -----
+1.ป้อนข้อมูล | ผู้ใช้กรอก Channel Secret และ Access Token ใน Frontend (หน้าตั้งค่า) และคลิกบันทึก | ส่งข้อมูล Credentials ผ่าน POST Request ไปยัง Backend Endpoint: /save_credentials/[user_id]
+2.ประมวลผลและสร้าง URL| ฟังก์ชัน save_credentials ใน Backend (api_app.py) บันทึก Credentials ลงฐานข้อมูล และ สร้าง Webhook URL เฉพาะร้าน (เช่น https://[BASE_URL]/webhook/[user_id]) | Webhook URL ที่ไม่ซ้ำกันสำหรับ Channel นั้นถูกสร้างขึ้น
+3.อัปเดต Webhook| Backend เรียกใช้ฟังก์ชัน update_line_webhook ส่ง Access Token และ Webhook URL ที่สร้างขึ้นไป | LINE API อัปเดต Webhook URL ของ Channel นั้นให้ชี้มาที่เซิร์ฟเวอร์ของเรา
+4.ยืนยันผล| Backend รับสถานะสำเร็จจาก LINE และส่งข้อความยืนยันพร้อมแสดง Webhook URL ที่อัปเดตแล้วกลับไปที่ Frontend | ระบบพร้อมใช้งานทันทีสำหรับการรับ-ส่งข้อความ
+
+การทำงานแบบอัตโนมัตินี้ทำให้มั่นใจได้ว่าเมื่อผู้ใช้ตั้งค่าข้อมูล API เข้ามา ระบบจะทำการเชื่อมต่อกับ LINE Channel ให้พร้อมใช้งานสำหรับการรับ-ส่งข้อความโดย ไม่ต้องมีการตั้งค่าด้วยตนเอง ใน LINE Developer Console อีกต่อไป
